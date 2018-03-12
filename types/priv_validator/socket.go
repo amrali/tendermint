@@ -58,7 +58,7 @@ type SocketClient struct {
 	addr            string
 	connDeadline    time.Duration
 	connWaitTimeout time.Duration
-	privKey         *crypto.PrivKeyEd25519
+	privKey         crypto.PrivKeyEd25519
 
 	conn     net.Conn
 	listener net.Listener
@@ -71,7 +71,7 @@ var _ types.PrivValidator2 = (*SocketClient)(nil)
 func NewSocketClient(
 	logger log.Logger,
 	socketAddr string,
-	privKey *crypto.PrivKeyEd25519,
+	privKey crypto.PrivKeyEd25519,
 ) *SocketClient {
 	sc := &SocketClient{
 		addr:            socketAddr,
@@ -87,15 +87,13 @@ func NewSocketClient(
 
 // OnStart implements cmn.Service.
 func (sc *SocketClient) OnStart() error {
-	if sc.listener == nil {
-		if err := sc.listen(); err != nil {
-			sc.Logger.Error(
-				"OnStart",
-				"err", errors.Wrap(err, "failed to listen"),
-			)
+	if err := sc.listen(); err != nil {
+		sc.Logger.Error(
+			"OnStart",
+			"err", errors.Wrap(err, "failed to listen"),
+		)
 
-			return err
-		}
+		return err
 	}
 
 	conn, err := sc.waitConnection()
@@ -254,11 +252,9 @@ func (sc *SocketClient) acceptConnection() (net.Conn, error) {
 		return nil, err
 	}
 
-	if sc.privKey != nil {
-		conn, err = p2pconn.MakeSecretConnection(conn, sc.privKey.Wrap())
-		if err != nil {
-			return nil, err
-		}
+	conn, err = p2pconn.MakeSecretConnection(conn, sc.privKey.Wrap())
+	if err != nil {
+		return nil, err
 	}
 
 	return conn, nil
@@ -319,8 +315,7 @@ func RemoteSignerConnRetries(retries int) RemoteSignerOption {
 	return func(ss *RemoteSigner) { ss.connRetries = retries }
 }
 
-// RemoteSigner implements PrivValidator.
-// It responds to requests over a socket
+// RemoteSigner implements PrivValidator by dialing to a socket.
 type RemoteSigner struct {
 	cmn.BaseService
 
@@ -328,19 +323,18 @@ type RemoteSigner struct {
 	chainID      string
 	connDeadline time.Duration
 	connRetries  int
-	privKey      *crypto.PrivKeyEd25519
+	privKey      crypto.PrivKeyEd25519
 	privVal      PrivValidator
 
 	conn net.Conn
 }
 
-// NewRemoteSigner returns an instance of
-// RemoteSigner.
+// NewRemoteSigner returns an instance of RemoteSigner.
 func NewRemoteSigner(
 	logger log.Logger,
 	chainID, socketAddr string,
 	privVal PrivValidator,
-	privKey *crypto.PrivKeyEd25519,
+	privKey crypto.PrivKeyEd25519,
 ) *RemoteSigner {
 	rs := &RemoteSigner{
 		addr:         socketAddr,
@@ -412,16 +406,15 @@ RETRY_LOOP:
 			continue
 		}
 
-		if rs.privKey != nil {
-			conn, err = p2pconn.MakeSecretConnection(conn, rs.privKey.Wrap())
-			if err != nil {
-				rs.Logger.Error(
-					"sc connect",
-					"err", errors.Wrap(err, "encrypting connection failed"),
-				)
+		conn, err = p2pconn.MakeSecretConnection(conn, rs.privKey.Wrap())
+		if err != nil {
+			panic(err)
+			rs.Logger.Error(
+				"connect",
+				"err", errors.Wrap(err, "encrypting connection failed"),
+			)
 
-				continue RETRY_LOOP
-			}
+			continue RETRY_LOOP
 		}
 
 		return conn, nil

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	cmn "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/log"
 
+	p2pconn "github.com/tendermint/tendermint/p2p/conn"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -119,14 +121,12 @@ func TestSocketClientDeadline(t *testing.T) {
 		sc              = NewSocketClient(
 			log.TestingLogger(),
 			"127.0.0.1:0",
-			nil,
+			crypto.GenPrivKeyEd25519(),
 		)
 	)
 	defer sc.Stop()
 
 	SocketClientConnDeadline(time.Millisecond)(sc)
-
-	require.NoError(sc.listen())
 
 	go func(sc *SocketClient) {
 		require.NoError(sc.Start())
@@ -135,7 +135,13 @@ func TestSocketClientDeadline(t *testing.T) {
 		readyc <- struct{}{}
 	}(sc)
 
-	_, err := cmn.Connect(sc.listener.Addr().String())
+	for sc.listener == nil {
+	}
+
+	conn, err := cmn.Connect(sc.listener.Addr().String())
+	require.NoError(err)
+
+	_, err = p2pconn.MakeSecretConnection(conn, crypto.GenPrivKeyEd25519().Wrap())
 	require.NoError(err)
 
 	<-readyc
@@ -148,13 +154,13 @@ func TestSocketClientWait(t *testing.T) {
 	var (
 		assert, _ = assert.New(t), require.New(t)
 		logger    = log.TestingLogger()
-		privKey   = crypto.GenPrivKeyEd25519()
 		sc        = NewSocketClient(
 			logger,
 			"127.0.0.1:0",
-			&privKey,
+			crypto.GenPrivKeyEd25519(),
 		)
 	)
+
 	defer sc.Stop()
 
 	SocketClientConnWait(time.Millisecond)(sc)
@@ -165,13 +171,12 @@ func TestSocketClientWait(t *testing.T) {
 func TestRemoteSignerRetry(t *testing.T) {
 	var (
 		assert, _ = assert.New(t), require.New(t)
-		privKey   = crypto.GenPrivKeyEd25519()
 		rs        = NewRemoteSigner(
 			log.TestingLogger(),
 			cmn.RandStr(12),
 			"127.0.0.1:0",
 			NewTestPrivValidator(types.GenSigner()),
-			&privKey,
+			crypto.GenPrivKeyEd25519(),
 		)
 	)
 	defer rs.Stop()
@@ -190,32 +195,32 @@ func testSetupSocketPair(
 		assert, require = assert.New(t), require.New(t)
 		logger          = log.TestingLogger()
 		signer          = types.GenSigner()
-		clientPrivKey   = crypto.GenPrivKeyEd25519()
-		remotePrivKey   = crypto.GenPrivKeyEd25519()
 		privVal         = NewTestPrivValidator(signer)
 		readyc          = make(chan struct{})
 		sc              = NewSocketClient(
 			logger,
 			"127.0.0.1:0",
-			&clientPrivKey,
+			crypto.GenPrivKeyEd25519(),
 		)
 	)
 
-	require.NoError(sc.listen())
-
-	go func(sc *SocketClient) {
+	go func() {
 		require.NoError(sc.Start())
 		assert.True(sc.IsRunning())
 
-		readyc <- struct{}{}
-	}(sc)
+		close(readyc)
+	}()
+
+	for sc.listener == nil {
+		fmt.Println("nil")
+	}
 
 	rs := NewRemoteSigner(
 		logger,
 		chainID,
 		sc.listener.Addr().String(),
 		privVal,
-		&remotePrivKey,
+		crypto.GenPrivKeyEd25519(),
 	)
 	require.NoError(rs.Start())
 	assert.True(rs.IsRunning())
