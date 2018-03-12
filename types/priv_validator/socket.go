@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	crypto "github.com/tendermint/go-crypto"
-	wire "github.com/tendermint/go-wire"
+	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/log"
 	"golang.org/x/net/netutil"
@@ -406,12 +406,12 @@ const (
 // and server.
 type PrivValidatorSocketMsg interface{}
 
-var _ = wire.RegisterInterface(
+var _ = amino.RegisterInterface(
 	struct{ PrivValidatorSocketMsg }{},
-	wire.ConcreteType{&PubKeyMsg{}, msgTypePubKey},
-	wire.ConcreteType{&SignVoteMsg{}, msgTypeSignVote},
-	wire.ConcreteType{&SignProposalMsg{}, msgTypeSignProposal},
-	wire.ConcreteType{&SignHeartbeatMsg{}, msgTypeSignHeartbeat},
+	amino.ConcreteType{&PubKeyMsg{}, msgTypePubKey},
+	amino.ConcreteType{&SignVoteMsg{}, msgTypeSignVote},
+	amino.ConcreteType{&SignProposalMsg{}, msgTypeSignProposal},
+	amino.ConcreteType{&SignHeartbeatMsg{}, msgTypeSignHeartbeat},
 )
 
 // PubKeyMsg is a PrivValidatorSocket message containing the public key.
@@ -440,7 +440,7 @@ func readMsg(r io.Reader) (PrivValidatorSocketMsg, error) {
 		err error
 	)
 
-	read := wire.ReadBinary(struct{ PrivValidatorSocketMsg }{}, r, 0, &n, &err)
+	read := amino.ReadBinary(struct{ PrivValidatorSocketMsg }{}, r, 0, &n, &err)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +460,7 @@ func writeMsg(w io.Writer, msg interface{}) error {
 	)
 
 	// TODO(xla): This extra wrap should be gone with the sdk-2 update.
-	wire.WriteBinary(struct{ PrivValidatorSocketMsg }{msg}, w, &n, &err)
+	amino.WriteBinary(struct{ PrivValidatorSocketMsg }{msg}, w, &n, &err)
 
 	return err
 }

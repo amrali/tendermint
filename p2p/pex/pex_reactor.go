@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	wire "github.com/tendermint/go-wire"
+	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/tmlibs/common"
 
 	"github.com/tendermint/tendermint/p2p"
@@ -591,10 +591,10 @@ const (
 // either pexRequestMessage, or pexAddrsMessage messages.
 type PexMessage interface{}
 
-var _ = wire.RegisterInterface(
+var _ = amino.RegisterInterface(
 	struct{ PexMessage }{},
-	wire.ConcreteType{&pexRequestMessage{}, msgTypeRequest},
-	wire.ConcreteType{&pexAddrsMessage{}, msgTypeAddrs},
+	amino.ConcreteType{&pexRequestMessage{}, msgTypeRequest},
+	amino.ConcreteType{&pexAddrsMessage{}, msgTypeAddrs},
 )
 
 // DecodeMessage implements interface registered above.
@@ -602,7 +602,7 @@ func DecodeMessage(bz []byte) (msgType byte, msg PexMessage, err error) {
 	msgType = bz[0]
 	n := new(int)
 	r := bytes.NewReader(bz)
-	msg = wire.ReadBinary(struct{ PexMessage }{}, r, maxPexMessageSize, n, &err).(struct{ PexMessage }).PexMessage
+	msg = amino.ReadBinary(struct{ PexMessage }{}, r, maxPexMessageSize, n, &err).(struct{ PexMessage }).PexMessage
 	return
 }
 

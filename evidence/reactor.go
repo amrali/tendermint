@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	wire "github.com/tendermint/go-wire"
+	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tmlibs/log"
 
 	"github.com/tendermint/tendermint/p2p"
@@ -142,9 +142,9 @@ const (
 // EvidenceMessage is a message sent or received by the EvidenceReactor.
 type EvidenceMessage interface{}
 
-var _ = wire.RegisterInterface(
+var _ = amino.RegisterInterface(
 	struct{ EvidenceMessage }{},
-	wire.ConcreteType{&EvidenceListMessage{}, msgTypeEvidence},
+	amino.ConcreteType{&EvidenceListMessage{}, msgTypeEvidence},
 )
 
 // DecodeMessage decodes a byte-array into a EvidenceMessage.
@@ -152,7 +152,7 @@ func DecodeMessage(bz []byte) (msgType byte, msg EvidenceMessage, err error) {
 	msgType = bz[0]
 	n := new(int)
 	r := bytes.NewReader(bz)
-	msg = wire.ReadBinary(struct{ EvidenceMessage }{}, r, maxEvidenceMessageSize, n, &err).(struct{ EvidenceMessage }).EvidenceMessage
+	msg = amino.ReadBinary(struct{ EvidenceMessage }{}, r, maxEvidenceMessageSize, n, &err).(struct{ EvidenceMessage }).EvidenceMessage
 	return
 }
 
